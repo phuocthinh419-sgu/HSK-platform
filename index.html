@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSK MASTER LAB – 从零到 HSK 3 | Tự Học HSK Tiêu Chuẩn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: { colors: { navy: { 800: '#1e293b', 900: '#0f172a', 950: '#020617' }, emerald: { 500: '#10b981', 600: '#059669', 700: '#047857' } },
+                fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], hanzi: ['"Noto Sans SC"', 'Inter', 'sans-serif'] } }
+            }
+        }
+    </script>
+    <!-- Gắn y phục -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+
+    <!-- [BỆ HẠ GIỮ NGUYÊN TOÀN BỘ GIAO DIỆN TỪ <header> ĐẾN TRƯỚC THẺ <script> NHƯ CŨ, KHÔNG THAY ĐỔI GÌ] -->
+    
+    <!-- POMODORO FOCUS WIDGET (Tích hợp chống trì hoãn) -->
+    <div id="pomodoro-widget" class="fixed bottom-5 left-5 z-50 bg-navy-900 border-2 border-emerald-600 rounded-2xl p-3 shadow-2xl text-white flex flex-col items-center gap-2 transition-all hover:scale-105 w-36 pomo-glow">
+        <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+            <i class="fa-solid fa-stopwatch"></i> Kỷ Luật Thép
+        </div>
+        <div id="pomo-display" class="text-3xl font-extrabold font-mono text-white tracking-tight">25:00</div>
+        <div class="flex gap-2 w-full">
+            <button onclick="togglePomodoro()" id="pomo-toggle-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-1.5 text-xs font-bold transition shadow" title="Bắt đầu/Tạm dừng">
+                <i class="fa-solid fa-play"></i>
+            </button>
+            <button onclick="resetPomodoro()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg py-1.5 text-xs font-bold transition shadow" title="Đặt lại">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase Storage (Module) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let db = null, auth = null, currentUser = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hsk-master-lab-v1';
+
+        async function initCloudPersistence() {
+            const statusEl = document.getElementById('storage-status-indicator');
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const app = initializeApp(JSON.parse(__firebase_config));
+                    auth = getAuth(app); db = getFirestore(app);
+                    await signInAnonymously(auth);
+                    currentUser = auth.currentUser;
+                    if (currentUser && db) {
+                        const stateRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'hsk_state', 'profile');
+                        const snap = await getDoc(stateRef);
+                        if (snap.exists() && snap.data().payload) {
+                            window.mergeLearnerState(JSON.parse(snap.data().payload));
+                        } else {
+                            await window.saveLearnerStateToCloud();
+                        }
+                        if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-400 mr-1"></i>Đã lưu đám mây`;
+                    }
+                }
+            } catch (err) {
+                if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-file-shield text-amber-400 mr-1"></i>Bộ nhớ thiết bị`;
+            }
+        }
+        window.saveLearnerStateToCloud = async function() {
+            if (!currentUser || !db) return;
+            try { await setDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'hsk_state', 'profile'), { payload: JSON.stringify(window.learnerState), updatedAt: Date.now() }); } catch (e) {}
+        };
+        window.addEventListener('DOMContentLoaded', initCloudPersistence);
+    </script>
+
+    <!-- Móc nối tệp linh hồn logic (Bao gồm dữ liệu và logic Pomodoro) -->
+    <script src="script.js"></script>
+</body>
+</html>
